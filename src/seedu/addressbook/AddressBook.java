@@ -118,8 +118,8 @@ public class AddressBook {
     private static final String COMMAND_DELETE_WORD = "delete";
     private static final String COMMAND_DELETE_DESC = "Deletes a person identified by the index number used in "
                                                     + "the last find/list call.";
-    private static final String COMMAND_DELETE_PARAMETER = "INDEX";
-    private static final String COMMAND_DELETE_EXAMPLE = COMMAND_DELETE_WORD + " 1";
+    private static final String COMMAND_DELETE_PARAMETER = "INDEX or NAME";
+    private static final String COMMAND_DELETE_EXAMPLE = COMMAND_DELETE_WORD + " 1" + " or delete John Doe";
 
     private static final String COMMAND_CLEAR_WORD = "clear";
     private static final String COMMAND_CLEAR_DESC = "Clears address book permanently.";
@@ -132,6 +132,11 @@ public class AddressBook {
     private static final String COMMAND_EXIT_WORD = "exit";
     private static final String COMMAND_EXIT_DESC = "Exits the program.";
     private static final String COMMAND_EXIT_EXAMPLE = COMMAND_EXIT_WORD;
+
+    private static final String DELETE_STATUS_ARGS_INVALID = "Invalid";
+    private static final String DELETE_STATUS_ARGS_STRING = "String";
+    private static final String DELETE_STATUS_ARGS_NUMBER = "Number";
+
 
     private static final String DIVIDER = "===================================================";
 
@@ -246,7 +251,7 @@ public class AddressBook {
      * Echoes the user input back to the user.
      */
     private static void echoUserCommand(String userCommand) {
-        showToUser("[Command entered:" + userCommand + "]");
+        showToUser("[Command entered: " + userCommand + "]");
     }
 
     /**
@@ -500,10 +505,23 @@ public class AddressBook {
      * @return feedback display message for the operation result
      */
     private static String executeDeletePerson(String commandArgs) {
-        if (!isDeletePersonArgsValid(commandArgs)) {
+        if (deletePersonArgsType(commandArgs).equals(DELETE_STATUS_ARGS_INVALID)) {
             return getMessageForInvalidCommandInput(COMMAND_DELETE_WORD, getUsageInfoForDeleteCommand());
         }
-        final int targetVisibleIndex = extractTargetIndexFromDeletePersonArgs(commandArgs);
+
+        // delete by String
+        if (deletePersonArgsType(commandArgs).equals(DELETE_STATUS_ARGS_STRING)) {
+            final String[] target = getPersonByName(commandArgs);
+            if (target == null || target.length == 0) {
+                return MESSAGE_PERSON_NOT_IN_ADDRESSBOOK;
+            };
+
+            return deletePersonFromAddressBook(target) ? getMessageForSuccessfulDelete(target) // success
+                    : MESSAGE_PERSON_NOT_IN_ADDRESSBOOK; // not found
+        }
+
+        // delete by index
+        final int targetVisibleIndex = extractTargetIndexFromDeletePersonArgs(commandArgs); // converts String to Integer
         if (!isDisplayIndexValidForLastPersonListingView(targetVisibleIndex)) {
             return MESSAGE_INVALID_PERSON_DISPLAYED_INDEX;
         }
@@ -512,18 +530,42 @@ public class AddressBook {
                                                           : MESSAGE_PERSON_NOT_IN_ADDRESSBOOK; // not found
     }
 
+
+    /**
+     * Retrieves a person array by name, not case sensitiveli
+     *
+     * @param name of person
+     * @return return the person object
+     */
+    private static String[] getPersonByName(String name) {
+        String result[] = {};
+
+        for (String[] person: latestPersonListingView) {
+            if (person[PERSON_DATA_INDEX_NAME].equalsIgnoreCase(name)) {
+                result = person;
+                break;
+            }
+        }
+        return result;
+    }
+
+
     /**
      * Checks validity of delete person argument string's format.
      *
      * @param rawArgs raw command args string for the delete person command
      * @return whether the input args string is valid
      */
-    private static boolean isDeletePersonArgsValid(String rawArgs) {
+    private static String deletePersonArgsType(String rawArgs) {
         try {
             final int extractedIndex = Integer.parseInt(rawArgs.trim()); // use standard libraries to parse
-            return extractedIndex >= DISPLAYED_INDEX_OFFSET;
+            if (extractedIndex >= DISPLAYED_INDEX_OFFSET) {
+                return DELETE_STATUS_ARGS_NUMBER;
+            }
+            return DELETE_STATUS_ARGS_INVALID;
+
         } catch (NumberFormatException nfe) {
-            return false;
+            return DELETE_STATUS_ARGS_STRING;
         }
     }
 
